@@ -3,15 +3,17 @@
 
 #include "ImGuiPart.hh"
 
+#include "CPURegs.hh"
 #include "EmuTime.hh"
 
+#include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace openmsx {
 
-class CPURegs;
 class DebuggableEditor;
 class Debugger;
 class ImGuiBitmapViewer;
@@ -22,6 +24,14 @@ class MSXCPUInterface;
 
 class ImGuiDebugger final : public ImGuiPart
 {
+public:
+	struct PageInfo {
+		uint8_t ps = 0;
+		std::optional<uint8_t> ss;
+		std::string segment;
+	};
+	using SlotInfo = std::array<PageInfo, 4>;
+
 public:
 	explicit ImGuiDebugger(ImGuiManager& manager);
 	~ImGuiDebugger();
@@ -36,10 +46,19 @@ public:
 	void paint(MSXMotherBoard* motherBoard) override;
 
 	void signalBreak();
+	void signalContinue();
 	void setGotoTarget(uint16_t target);
-	void checkShortcuts(MSXCPUInterface& cpuInterface, MSXMotherBoard& motherBoard);
+	void checkShortcuts(MSXCPUInterface& cpuInterface, MSXMotherBoard& motherBoard,
+	                    ImGuiDisassembly* disassembly);
+
+	[[nodiscard]] bool needSnapshot() const { return showChanges == SHOW_ALWAYS; }
+	[[nodiscard]] bool needDrawChanges() const;
+	[[nodiscard]] auto getChangesColor() const { return ImGui::ColorConvertFloat4ToU32(changesColor); }
+	void configureChangesMenu();
 
 private:
+	SlotInfo getSlotInfo(MSXCPUInterface& cpuInterface, Debugger& debugger) const;
+
 	void drawControl(MSXCPUInterface& cpuInterface, MSXMotherBoard& motherBoard);
 	void drawSlots(MSXCPUInterface& cpuInterface, Debugger& debugger);
 	void drawStack(const CPURegs& regs, const MSXCPUInterface& cpuInterface, EmuTime::param time);
@@ -59,6 +78,13 @@ private:
 	std::vector<std::unique_ptr<ImGuiSpriteViewer>> spriteViewers;
 	std::vector<std::unique_ptr<DebuggableEditor>> hexEditors; // sorted on 'getDebuggableName()'
 
+	std::optional<SlotInfo> slotSnapshot;
+	std::optional<CPURegs> cpuRegsSnapshot;
+	int showChangesFrameCounter = 0;
+	enum ShowChanges : int { SHOW_NEVER, SHOW_DURING_BREAK, SHOW_ALWAYS };
+	int showChanges = SHOW_DURING_BREAK;
+	gl::vec4 changesColor{1.0f, 0.0f, 0.0f, 1.0f}; // RGBA
+
 	bool showControl = false;
 	bool showSlots = false;
 	bool showStack = false;
@@ -74,7 +100,10 @@ private:
 		PersistentElement{"showStack",       &ImGuiDebugger::showStack},
 		PersistentElement{"showFlags",       &ImGuiDebugger::showFlags},
 		PersistentElement{"showXYFlags",     &ImGuiDebugger::showXYFlags},
-		PersistentElementMax{"flagsLayout",  &ImGuiDebugger::flagsLayout, 2}
+		PersistentElementMax{"flagsLayout",  &ImGuiDebugger::flagsLayout, 2},
+		PersistentElement{"showChanges",     &ImGuiDebugger::showChanges},
+		PersistentElement{"changesColor",    &ImGuiDebugger::changesColor}
+
 		// manually handle "showDebuggable.xxx"
 	};
 };

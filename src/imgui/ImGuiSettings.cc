@@ -138,12 +138,11 @@ void ImGuiSettings::showMenu(MSXMotherBoard* motherBoard)
 					};
 					using enum RenderSettings::ScaleAlgorithm;
 					static constexpr std::array algoEnables = {
-						//                 scanline / blur
-						AlgoEnable{SIMPLE,     true,  true },
-						AlgoEnable{SCALE,      false, false},
-						AlgoEnable{HQ,         false, false},
-						AlgoEnable{RGBTRIPLET, true,  true },
-						AlgoEnable{TV,         true,  false},
+						AlgoEnable{.algo = SIMPLE,     .hasScanline = true,  .hasBlur = true },
+						AlgoEnable{.algo = SCALE,      .hasScanline = false, .hasBlur = false},
+						AlgoEnable{.algo = HQ,         .hasScanline = false, .hasBlur = false},
+						AlgoEnable{.algo = RGBTRIPLET, .hasScanline = true,  .hasBlur = true },
+						AlgoEnable{.algo = TV,         .hasScanline = true,  .hasBlur = false},
 					};
 					auto it = std::ranges::find(algoEnables, scaler.getEnum(), &AlgoEnable::algo);
 					assert(it != algoEnables.end());
@@ -202,9 +201,9 @@ void ImGuiSettings::showMenu(MSXMotherBoard* motherBoard)
 			Checkbox(hotKey, "Mute", muteSetting);
 			ImGui::Separator();
 			static constexpr std::array resamplerToolTips = {
-				EnumToolTip{"hq",   "best quality, uses more CPU"},
-				EnumToolTip{"blip", "good speed/quality tradeoff"},
-				EnumToolTip{"fast", "fast but low quality"},
+				EnumToolTip{.value = "hq",   .tip = "best quality, uses more CPU"},
+				EnumToolTip{.value = "blip", .tip = "good speed/quality tradeoff"},
+				EnumToolTip{.value = "fast", .tip = "fast but low quality"},
 			};
 			ComboBox("Resampler", globalSettings.getResampleSetting(), resamplerToolTips);
 			ImGui::Separator();
@@ -293,9 +292,9 @@ void ImGuiSettings::showMenu(MSXMotherBoard* motherBoard)
 		});
 		im::Menu("Input", [&]{
 			static constexpr std::array kbdModeToolTips = {
-				EnumToolTip{"CHARACTER",  "Tries to understand the character you are typing and then attempts to type that character using the current MSX keyboard. May not work very well when using a non-US host keyboard."},
-				EnumToolTip{"KEY",        "Tries to map a key you press to the corresponding MSX key"},
-				EnumToolTip{"POSITIONAL", "Tries to map the keyboard key positions to the MSX keyboard key positions"},
+				EnumToolTip{.value = "CHARACTER",  .tip = "Tries to understand the character you are typing and then attempts to type that character using the current MSX keyboard. May not work very well when using a non-US host keyboard."},
+				EnumToolTip{.value = "KEY",        .tip = "Tries to map a key you press to the corresponding MSX key"},
+				EnumToolTip{.value = "POSITIONAL", .tip = "Tries to map the keyboard key positions to the MSX keyboard key positions"},
 			};
 			if (motherBoard) {
 				const auto& controller = motherBoard->getMSXCommandController();
@@ -441,7 +440,7 @@ void ImGuiSettings::showMenu(MSXMotherBoard* motherBoard)
 		});
 	});
 
-	const auto confirmTitle = "Confirm##settings";
+	const auto* confirmTitle = "Confirm##settings";
 	if (openConfirmPopup) {
 		ImGui::OpenPopup(confirmTitle);
 	}
@@ -511,10 +510,12 @@ void ImGuiSettings::showMenu(MSXMotherBoard* motherBoard)
 	return (min <= x) && (x <= max);
 }
 
+namespace {
 struct Rectangle {
 	gl::vec2 topLeft;
 	gl::vec2 bottomRight;
 };
+}
 [[nodiscard]] static bool insideRectangle(gl::vec2 mouse, Rectangle r)
 {
 	return between(mouse.x, r.topLeft.x, r.bottomRight.x) &&
@@ -652,7 +653,7 @@ static void drawLetterZ(gl::vec2 center)
 
 namespace msxjoystick {
 
-enum {UP, DOWN, LEFT, RIGHT, TRIG_A, TRIG_B, NUM_BUTTONS};
+enum : uint8_t {UP, DOWN, LEFT, RIGHT, TRIG_A, TRIG_B, NUM_BUTTONS};
 
 static constexpr std::array<zstring_view, NUM_BUTTONS> buttonNames = {
 	"Up", "Down", "Left", "Right", "A", "B" // show in the GUI
@@ -711,11 +712,11 @@ static void draw(gl::vec2 scrnPos, std::span<uint8_t> hovered, int hoveredRow)
 
 namespace joymega {
 
-enum {UP, DOWN, LEFT, RIGHT,
-      TRIG_A, TRIG_B, TRIG_C,
-      TRIG_X, TRIG_Y, TRIG_Z,
-      TRIG_SELECT, TRIG_START,
-      NUM_BUTTONS};
+enum : uint8_t {UP, DOWN, LEFT, RIGHT,
+                TRIG_A, TRIG_B, TRIG_C,
+                TRIG_X, TRIG_Y, TRIG_Z,
+                TRIG_SELECT, TRIG_START,
+                NUM_BUTTONS};
 
 static constexpr std::array<zstring_view, NUM_BUTTONS> buttonNames = { // show in the GUI
 	"Up", "Down", "Left", "Right",

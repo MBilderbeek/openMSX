@@ -25,7 +25,7 @@ static constexpr unsigned FAT16_MAX_CLUSTER_COUNT = 0xFFF4;
 static constexpr unsigned SECTOR_SIZE = sizeof(SectorBuffer);
 static constexpr unsigned DIR_ENTRIES_PER_SECTOR = SECTOR_SIZE / sizeof(MSXDirEntry);
 
-enum class PartitionTableType {
+enum class PartitionTableType : uint8_t {
 	SUNRISE_IDE,
 	NEXTOR
 };
@@ -285,7 +285,7 @@ static SetBootSectorResult setBootSector(
 		// for a 32MB disk or greater the sectors would be >= 65536
 		// since MSX use 16 bits for this, in case of sectors = 65536
 		// the truncated word will be 0 -> formatted as 320 Kb disk!
-		if (nbSectors > 65535) nbSectors = 65535; // this is the max size for fat12 :-)
+		nbSectors = std::min(nbSectors, size_t(65535)); // this is the max size for fat12 :-)
 	} else if (nbSectors > 16388) {
 		// using the same layout as used by Jon in IDEFDISK v 3.1
 		// 16388 < nbSectors <= 32732
@@ -463,7 +463,7 @@ struct CHS {
 	tmp = (tmp - sector) / 32;
 	uint8_t head = tmp % 16;
 	unsigned cylinder = tmp / 16;
-	return {cylinder, head, sector};
+	return {.cylinder = cylinder, .head = head, .sector = sector};
 }
 
 static std::vector<unsigned> clampPartitionSizes(std::span<const unsigned> sizes,
@@ -648,9 +648,9 @@ FatTimeDate toTimeDate(time_t totalSeconds)
 		auto date = narrow<uint16_t>(
 			mtim->tm_mday + ((mtim->tm_mon + 1) << 5) +
 			(std::clamp(mtim->tm_year + 1900 - 1980, 0, 119) << 9));
-		return {time, date};
+		return {.time = time, .date = date};
 	}
-	return {0, 0};
+	return {.time = 0, .date = 0};
 }
 
 time_t fromTimeDate(FatTimeDate timeDate)

@@ -97,7 +97,7 @@ void simpleToolTip(std::invocable<> auto descFunc)
 	});
 }
 
-void HelpMarker(std::string_view desc);
+void HelpMarker(std::string_view desc, float spacing = -1.0f);
 
 inline bool ButtonWithCustomRendering(
 	const char* label, gl::vec2 size, bool pressed,
@@ -339,7 +339,7 @@ private:
 	bool planar = false;
 };
 
-enum class imColor : unsigned {
+enum class imColor : uint8_t {
 	TRANSPARENT,
 	BLACK,
 	WHITE,

@@ -572,9 +572,7 @@ void YMF262::Slot::advanceEnvelopeGenerator(unsigned egCnt)
 			// during sustain phase chip adds Release Rate (in percussive mode)
 			if (!(egCnt & eg_m_rr)) {
 				volume += eg_inc[eg_sel_rr + ((egCnt >> eg_sh_rr) & 7)];
-				if (volume >= MAX_ATT_INDEX) {
-					volume = MAX_ATT_INDEX;
-				}
+				volume = std::min(volume, MAX_ATT_INDEX);
 			} else {
 				// do nothing in sustain phase
 			}
@@ -1487,8 +1485,8 @@ uint8_t YMF262::peekStatus() const
 bool YMF262::checkMuteHelper() const
 {
 	// TODO this doesn't always mute when possible
-	for (auto& ch : channel) {
-		for (auto& sl : ch.slot) {
+	for (const auto& ch : channel) {
+		for (const auto& sl : ch.slot) {
 			if (!((sl.state == EnvelopeState::OFF) ||
 			      ((sl.state == EnvelopeState::RELEASE) &&
 			       ((narrow<int>(sl.TLL) + sl.volume) >= ENV_QUIET)))) {

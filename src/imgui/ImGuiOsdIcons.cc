@@ -208,8 +208,9 @@ void ImGuiOsdIcons::paint(MSXMotherBoard* /*motherBoard*/)
 			const auto& ic = state ? icon.on : icon.off;
 			if (alpha > 0.0f && ic.tex.get()) {
 				ImGui::SetCursorPos(cursor);
-				ImGui::Image(ic.tex.getImGui(), gl::vec2(ic.size),
-				             {0.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 1.0f, 1.0f, alpha});
+				ImGui::ImageWithBg(ic.tex.getImGui(), gl::vec2(ic.size),
+				                   {0.0f, 0.0f}, {1.0f, 1.0f},
+				                   {}, {1.0f, 1.0f, 1.0f, alpha});
 			}
 
 			// draw outline
@@ -286,7 +287,7 @@ void ImGuiOsdIcons::paintConfigureIcons()
 				ImGui::TableSetupColumn("Expression");
 				ImGui::TableHeadersRow();
 
-				enum class Cmd { MOVE_FRONT, MOVE_FWD, MOVE_BWD, MOVE_BACK, INSERT, DELETE };
+				enum class Cmd : uint8_t { MOVE_FRONT, MOVE_FWD, MOVE_BWD, MOVE_BACK, INSERT, DELETE };
 				using enum Cmd;
 				std::pair<int, Cmd> cmd(-1, MOVE_FRONT);
 				auto lastRow = narrow<int>(iconInfo.size()) - 1;

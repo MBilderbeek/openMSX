@@ -228,7 +228,7 @@ ImGuiManager::ImGuiManager(Reactor& reactor_)
 	using enum EventType;
 	for (auto type : {MOUSE_BUTTON_UP, MOUSE_BUTTON_DOWN, MOUSE_MOTION, MOUSE_WHEEL,
 	                  KEY_UP, KEY_DOWN, TEXT,
-	                  WINDOW, FILE_DROP, IMGUI_DELAYED_ACTION, BREAK, MACHINE_LOADED}) {
+	                  WINDOW, FILE_DROP, IMGUI_DELAYED_ACTION, BREAK, CONTINUE, MACHINE_LOADED}) {
 		eventDistributor.registerEventListener(type, *this, EventDistributor::Priority::IMGUI);
 	}
 
@@ -247,7 +247,7 @@ ImGuiManager::~ImGuiManager()
 
 	auto& eventDistributor = reactor.getEventDistributor();
 	using enum EventType;
-	for (auto type : {MACHINE_LOADED, BREAK, IMGUI_DELAYED_ACTION, FILE_DROP, WINDOW, TEXT,
+	for (auto type : {MACHINE_LOADED, CONTINUE, BREAK, IMGUI_DELAYED_ACTION, FILE_DROP, WINDOW, TEXT,
 	                  KEY_DOWN, KEY_UP,
 	                  MOUSE_WHEEL, MOUSE_MOTION, MOUSE_BUTTON_DOWN, MOUSE_BUTTON_UP}) {
 		eventDistributor.unregisterEventListener(type, *this);
@@ -380,7 +380,7 @@ void ImGuiManager::printError(std::string_view message)
 
 bool ImGuiManager::signalEvent(const Event& event)
 {
-	if (auto* evt = get_event_if<SdlEvent>(event)) {
+	if (const auto* evt = get_event_if<SdlEvent>(event)) {
 		const ImGuiIO& io = ImGui::GetIO();
 		if (!io.BackendPlatformUserData) {
 			// ImGui backend not (yet) initialized (e.g. after 'set renderer none')
@@ -418,6 +418,9 @@ bool ImGuiManager::signalEvent(const Event& event)
 			[[fallthrough]];
 		case EventType::BREAK:
 			debugger->signalBreak();
+			break;
+		case EventType::CONTINUE:
+			debugger->signalContinue();
 			break;
 		default:
 			UNREACHABLE;
@@ -768,7 +771,7 @@ void ImGuiManager::drawStatusBar(MSXMotherBoard* motherBoard)
 						? (mode.getByte() & DisplayMode::YAE) ? std::pair{"11", "GRAPHIC 7 (YJK/YAE mode)"} : std::pair{"12", "GRAPHIC 7 (YJK mode)"}
 						: std::pair{"8", "GRAPHIC 7"};
 				}();
-				auto extendedStr = extendedStr_; // pre-clang-16 workaround
+				const auto* extendedStr = extendedStr_; // pre-clang-16 workaround
 				ImGui::RightAlignText(modeStr, "0 (80)");
 				simpleToolTip([&]{
 					std::string result = "screen mode as used in MSX-BASIC";
@@ -809,7 +812,7 @@ void ImGuiManager::drawStatusBar(MSXMotherBoard* motherBoard)
 					speed = 0.0f;
 					prevBoardTime = EmuTime::zero();
 				}
-				ImGui::RightAlignText(strCat(std::round(speed), '%'), "10000%");
+				ImGui::RightAlignText(strCat(std::lrint(speed), '%'), "10000%");
 				simpleToolTip("emulation speed");
 				ImGui::Separator();
 			}
@@ -836,6 +839,10 @@ void ImGuiManager::drawStatusBar(MSXMotherBoard* motherBoard)
 				if (auto result = execute(TclObject("guess_title"))) {
 					ImGui::TextUnformatted(result->getString());
 					simpleToolTip("the (probably) currently running software");
+					if (auto mapperResult = execute(TclObject("dict get [openmsx_info romtype [dict get [machine_info device [guess_rom_device]] \"mappertype\"]] description"))) {
+						ImGui::TextUnformatted(strCat(" (", mapperResult->getString(), ")"));
+						simpleToolTip("the mapper type of the running ROM software");
+					};
 				}
 			}
 

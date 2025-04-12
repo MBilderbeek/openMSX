@@ -3,6 +3,7 @@
 
 #include "IterableBitSet.hh"
 #include "stringsp.hh"
+
 #include <algorithm>
 #include <charconv>
 #include <concepts>
@@ -15,6 +16,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+
 #if defined(__APPLE__)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
@@ -75,7 +77,7 @@ namespace StringOp
 
 	//[[nodiscard]] std::vector<std::string_view> split(std::string_view str, char chars);
 
-	enum class EmptyParts {
+	enum class EmptyParts : uint8_t {
 		KEEP,  // "a,b,,c" -> "a", "b", "", "c"
 		REMOVE // "a,b,,c" -> "a", "b", "c"       BUT  ",,a,b" -> "", "a", "b"  (keeps one empty part in front)
 	};
@@ -127,7 +129,7 @@ namespace StringOp
 				while ((p < str.size()) && !isSeparator(str[p], separators)) ++p;
 			}
 
-			std::string_view::size_type skipSeparators(std::string_view::size_type pos) const {
+			[[nodiscard]] std::string_view::size_type skipSeparators(std::string_view::size_type pos) const {
 				if (keepOrRemove == EmptyParts::REMOVE) {
 					while ((pos < str.size()) && isSeparator(str[pos], separators)) ++pos;
 				}
@@ -191,8 +193,8 @@ namespace StringOp
 	[[nodiscard]] std::optional<T> stringToBase(std::string_view s)
 	{
 		T result = {}; // dummy init to avoid warning
-		auto b = s.data();
-		auto e = s.data() + s.size();
+		const auto* b = s.data();
+		const auto* e = s.data() + s.size();
 		if (auto [p, ec] = std::from_chars(b, e, result, BASE);
 		    (ec == std::errc()) && (p == e)) {
 			return result;

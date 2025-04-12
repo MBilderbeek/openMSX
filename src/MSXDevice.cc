@@ -182,7 +182,7 @@ void MSXDevice::registerSlots()
 				getName(), " should be aligned on at least 0x",
 				hex_string<4>(align), '.');
 		}
-		tmpMemRegions.emplace_back(BaseSize{base, size});
+		tmpMemRegions.push_back({.base = base, .size = size});
 	}
 	if (tmpMemRegions.empty()) {
 		return;
@@ -335,6 +335,11 @@ void MSXDevice::registerPorts()
 		}
 	}
 	// .. and only then register the ports. This filters possible overlaps.
+	doRegisterPorts();
+}
+
+void MSXDevice::doRegisterPorts()
+{
 	inPorts.foreachSetBit([&](auto port) {
 		getCPUInterface().register_IO_In(narrow_cast<byte>(port), this);
 	});

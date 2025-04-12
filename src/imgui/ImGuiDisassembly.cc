@@ -10,6 +10,7 @@
 #include "Dasm.hh"
 #include "Debugger.hh"
 #include "Display.hh"
+#include "GlobalSettings.hh"
 #include "MSXCPU.hh"
 #include "MSXCPUInterface.hh"
 #include "MSXMemoryMapperBase.hh"
@@ -180,16 +181,16 @@ static void toggleBp(uint16_t addr, const BpLine& bpLine, std::span<BreakPoint> 
 }
 void ImGuiDisassembly::actionToggleBp(MSXMotherBoard& motherBoard)
 {
-	auto pc = motherBoard.getCPU().getRegisters().getPC();
 	auto& cpuInterface = motherBoard.getCPUInterface();
 	auto& debugger = motherBoard.getDebugger();
 	auto& bps = cpuInterface.getBreakPoints();
-
-	auto bpLine = examineBpLine(pc, bps, cpuInterface, debugger);
-
 	std::optional<BreakPoint> addBp;
 	std::optional<unsigned> removeBpId;
-	toggleBp(pc, bpLine, bps, cpuInterface, debugger, addBp, removeBpId);
+	auto addr = selectedAddr ? *selectedAddr : motherBoard.getCPU().getRegisters().getPC();
+
+	auto bpLine = examineBpLine(addr, bps, cpuInterface, debugger);
+
+	toggleBp(addr, bpLine, bps, cpuInterface, debugger, addBp, removeBpId);
 	if (addBp) {
 		cpuInterface.insertBreakPoint(std::move(*addBp));
 	}
@@ -209,14 +210,20 @@ void ImGuiDisassembly::paint(MSXMotherBoard* motherBoard)
 		auto& debugger = motherBoard->getDebugger();
 		auto time = motherBoard->getCurrentTime();
 
-		manager.debugger->checkShortcuts(cpuInterface, *motherBoard);
+		manager.debugger->checkShortcuts(cpuInterface, *motherBoard, this);
 
 		std::optional<BreakPoint> addBp;
 		std::optional<unsigned> removeBpId;
 
 		auto pc = regs.getPC();
-		if (followPC && !MSXCPUInterface::isBreaked()) {
+		auto& reactor = manager.getReactor();
+		auto running = !MSXCPUInterface::isBreaked() && !reactor.getGlobalSettings().getPauseSetting().getBoolean();
+		if (followPC && running) {
 			gotoTarget = pc;
+		}
+
+		if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+			selectedAddr = {};
 		}
 
 		auto widthOpcode = ImGui::CalcTextSize("12 34 56 78"sv).x;
@@ -333,8 +340,11 @@ void ImGuiDisassembly::paint(MSXMotherBoard* motherBoard)
 
 							// do the full-row-selectable stuff in a column that cannot be hidden
 							auto pos = ImGui::GetCursorPos();
-							ImGui::Selectable("##row", false,
+							ImGui::Selectable("##row", selectedAddr == addr,
 									ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+							if (ImGui::IsItemFocused()) {
+								selectedAddr = addr;
+							}
 							using enum Shortcuts::ID;
 							auto& shortcuts = manager.getShortcuts();
 							if (shortcuts.checkShortcut(DISASM_GOTO_ADDR)) {
@@ -412,7 +422,7 @@ void ImGuiDisassembly::paint(MSXMotherBoard* motherBoard)
 								}
 							});
 
-							enum class Priority {
+							enum class Priority : uint8_t {
 								MISSING_BOTH = 0, // from lowest to highest
 								MISSING_ONE,
 								SLOT_AND_SEGMENT
@@ -479,16 +489,11 @@ void ImGuiDisassembly::paint(MSXMotherBoard* motherBoard)
 								ImGui::TextUnformatted(mnemonic);
 							});
 							if (mnemonicAddr) {
-								ImGui::SetCursorPos(pos);
-								if (ImGui::InvisibleButton("##mnemonicButton", {-FLT_MIN, textSize})) {
-									if (!mnemonicLabels.empty()) {
+								if (!mnemonicLabels.empty()) {
+									ImGui::SetCursorPos(pos);
+									if (ImGui::InvisibleButton("##mnemonicButton", {-FLT_MIN, textSize})) {
 										++cycleLabelsCounter;
 									}
-								}
-								if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-									nextGotoTarget = *mnemonicAddr;
-								}
-								if (!mnemonicLabels.empty()) {
 									simpleToolTip([&]{
 										auto tip = strCat('#', hex_string<4>(*mnemonicAddr));
 										if (mnemonicLabels.size() > 1) {
@@ -497,6 +502,9 @@ void ImGuiDisassembly::paint(MSXMotherBoard* motherBoard)
 										}
 										return tip;
 									});
+								}
+								if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+									nextGotoTarget = *mnemonicAddr;
 								}
 							}
 						}

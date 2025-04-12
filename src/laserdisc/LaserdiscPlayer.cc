@@ -7,6 +7,7 @@
 #include "HardwareConfig.hh"
 #include "XMLElement.hh"
 #include "CassettePort.hh"
+#include "CassettePlayer.hh"
 #include "MSXCliComm.hh"
 #include "Display.hh"
 #include "GlobalSettings.hh"
@@ -679,6 +680,16 @@ void LaserdiscPlayer::autoRun()
 		return;
 	}
 
+	auto *player = motherBoard.getCassettePort().getCassettePlayer();
+
+	if (player && player->getTapeLength(EmuTime::dummy()) > 0) {
+		// Murder Mystery laserdisc has no program encoded on the
+		// right audio channel, but provides a seperate cassette.
+		// So if a cassette and laserdisc is present, do not autoload
+		// the laserdisc but autoload the laserdisc instead.
+		return;
+	}
+
 	string var = "::auto_run_ld_counter";
 	string command = strCat(
 		"if ![info exists ", var, "] { set ", var, " 0 }\n"
@@ -918,8 +929,7 @@ void LaserdiscPlayer::seekFrame(size_t toFrame, EmuTime::param time)
 
 	updateStream(time);
 
-	if (toFrame <= 0) toFrame = 1;
-	if (toFrame > video->getFrames()) toFrame = video->getFrames();
+	toFrame = std::clamp(toFrame, size_t(1), video->getFrames());
 
 	// Seek time needs to be emulated correctly since
 	// e.g. Astron Belt does not wait for the seek

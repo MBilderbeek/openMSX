@@ -238,11 +238,8 @@ void OggReader::vorbisFoundPosition()
 		cli.printWarning("missing part of audio stream");
 	}
 
-	if (vorbisPos > currentSample) {
-		currentSample = vorbisPos;
-	}
+	currentSample = std::max(currentSample, vorbisPos);
 }
-
 
 void OggReader::vorbisHeaderPage(ogg_page* page)
 {
@@ -445,7 +442,7 @@ void OggReader::readMetadata(th_comment& tc)
 			++p;
 			size_t frame = atol(p);
 			if (frame) {
-				chapters.emplace_back(ChapterFrame{chapter, frame});
+				chapters.emplace_back(ChapterFrame{.chapter = chapter, .frame = frame});
 			}
 		} else if (strncasecmp(p, "stop: ", 6) == 0) {
 			size_t stopFrame = atol(p + 6);
